@@ -1,0 +1,81 @@
+tempo_scale 0.5
+tempo 76
+tempo_map (intro=1.0,verse=1.0,chorus=1.03,bridge=1.0,final=1.05)
+root D3
+maqam hijaz
+master 0.6
+
+// Chiptune palette
+synth arp pulse
+set arp cutoff 1700
+set arp res 0.2
+set arp atk 0.002
+set arp dec 0.1
+set arp sus 0.55
+set arp rel 0.12
+set arp amp 0.68
+
+synth pad tri
+set pad cutoff 1100
+set pad res 0.12
+set pad atk 0.03
+set pad dec 0.25
+set pad sus 0.75
+set pad rel 0.35
+set pad amp 0.9
+
+synth bass square
+set bass cutoff 700
+set bass res 0.12
+set bass atk 0.002
+set bass dec 0.14
+set bass sus 0.62
+set bass rel 0.12
+set bass amp 1.05
+
+synth k kick808
+synth s snare808
+synth hc hat808
+set s dec 0.05
+set hc dec 0.02
+set k amp 0.95
+set s amp 0.95
+set hc amp 0.95
+
+// Evolving arpeggios (Glass-like shifts)
+pattern a1 (1 2 3- 4 5 4 3- 2 1 2 3- 4 5 6 5 4)
+pattern a2 (1 2 3- 4 5 4 3- 2 1 2 3- 4 6 5 4 3-)
+pattern a3 (1 3- 4 5 6 5 4 3- 2 1 2 3- 4 5 4 3-)
+pattern a4 (1 2 3- 4 5 6 5 4 3- 2 1 2 3- 4 5 4)
+pattern a5 (1 2 3- 4 5 4 3- 2 1 2 3- 4 5 6 5 4)
+pattern a6 (1 2 3- 4 6 5 4 3- 2 1 2 3- 4 5 4 3-)
+
+// Bass ostinato
+pattern b1 (1, . 1, . 5,, . 1, . 4,, . 5,, . 1, .)
+pattern b2 (1, . 1, . 5,, . 1, . 4,, . 5,, . 1, .)
+pattern b3 (1, . 1, . 5,, . 1, . 4,, . 5,, . 7,, .)
+
+// Pad swells (slow)
+pattern p1 (1 . . . 5 . . . 4 . . . 6 . . .)
+pattern p2 (1 . . . 5 . . . 2 . . . 4 . . .)
+pattern p3 (1 . . . 5 . . . 6 . . . 2' . . .)
+pattern p_mel (1 . . . 7 . . . 6 . . . 5 . . .)
+pattern p_mel2 (1 . . . 2 . . . 3- . . . 2 . . .)
+
+// Drum grid
+pattern k_pat (1 . . . 1 . . . 1 . . . 1 . . .)
+pattern s_pat (. . 1 . . . 1 . . . 1 . . . 1 .)
+pattern h_pat (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+
+// Sequences
+sequence arps (a1, a2, a3, a4, a5, a6, a3, a2)
+sequence bassseq (b1, b2, b3, b2, b1, b2, b3, b2)
+sequence padseq (p1, p_mel, p2, p_mel2, p1, p_mel, p3, p_mel2)
+
+// Play
+playseq arps arp fast 2 slide 12
+playseq bassseq bass fast 1
+playseq padseq pad slow 2
+play k_pat k
+play s_pat s
+play h_pat hc fast 2 density 0.25
