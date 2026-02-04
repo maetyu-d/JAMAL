@@ -113,8 +113,4 @@ play main lead fast 2 density 0.8
 - Buffer size is targeted at 256 frames (low latency).
 - Live coding is immediate on Play: the script is re-parsed and the engine restarts with the new program.
 
-## Next Ideas
 
-- Multiple pattern layers with independent speeds
-- Per-track tempo multipliers and pattern transforms (slow/fast, reverse, every, density)
-- More SuperCollider-like UGens and modulation
