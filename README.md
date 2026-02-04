@@ -112,5 +112,3 @@ play main lead fast 2 density 0.8
 
 - Buffer size is targeted at 256 frames (low latency).
 - Live coding is immediate on Play: the script is re-parsed and the engine restarts with the new program.
-
-
