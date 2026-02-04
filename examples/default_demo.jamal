@@ -1,0 +1,90 @@
+tempo_scale 1
+tempo 64
+tempo_map (intro=0.5,verse=0.5,chorus=1.0,bridge=0.5,final=1.0)
+root D3
+maqam hijaz
+
+// Palette
+synth lead acid
+set lead cutoff 1400
+set lead res 0.45
+set lead atk 0.005
+set lead dec 0.12
+set lead sus 0.55
+set lead rel 0.2
+synth bass acid
+set bass cutoff 600
+set bass res 0.3
+set bass atk 0.005
+set bass dec 0.18
+set bass sus 0.45
+set bass rel 0.2
+synth k kick909
+synth s snare909
+synth hc hat909
+synth ho hat808
+synth c clap909
+synth rim rim
+synth metal metal
+set s dec 0.06
+set c dec 0.08
+set hc dec 0.02
+set ho dec 0.08
+set rim dec 0.02
+set metal dec 0.08
+synth lead2 pulse
+set lead2 cutoff 1800
+set lead2 res 0.2
+set lead2 atk 0.003
+set lead2 dec 0.1
+set lead2 sus 0.4
+set lead2 rel 0.15
+
+// Section patterns
+pattern intro_mel (1 . 2 . 3- . 4 . 5 . 4 . 3- . 2 .)
+pattern verse_mel (1 2 3-~40 4 5 4 3- 2 1 2 3 4 5 6 7 1')
+pattern chorus_mel (1'! . 7 6! . 5 6 . 7! 1' . 6 . 5! 4 .)
+pattern bridge_mel (5 4 3- 2 1 2 3- 4 5 6 5 4 3- 2 1)
+pattern final_mel (1' . 7 6 . 5 6 . 7 1' . 2' 1' . 7 6)
+
+pattern intro_bass (1, . . . 1, . . . 5,, . . . 1, . . .)
+pattern verse_bass (1, . 1, . 5, . 1, . 4, . 5, . 1, . 7,, .)
+pattern chorus_bass (1, . 5, 1, . 4, . 5, 1, . 7,, . 1, 5, .)
+pattern bridge_bass (5,, . 1, . 4,, . 1, . 5,, . 1, . 7,, .)
+pattern final_bass (1, 1, 5, 1, 4, 5, 1, 7,, 1, 1, 5, 1, 4, 5, 1, 7,,)
+
+pattern intro_k (1 . . . . . . . 1 . . . . . . .)
+pattern verse_k (1 . . . 1 . . . 1 . . . 1 . . .)
+pattern chorus_k (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+pattern final_k (1 1 . 1 1 . 1 1 1 . 1 1 1 . 1 1)
+
+pattern verse_s (. . 1 . . . 1 . . . 1 . . . 1 .)
+pattern chorus_s (. . 1 . . 1 . . . . 1 . . 1 . .)
+pattern final_s (. . 1 . 1 . 1 . . . 1 . 1 . 1 .)
+
+pattern hats_8 (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+pattern hats_16 (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+pattern open_hat (. . . . . 1 . . . . . 1 . . . .)
+pattern clap_pat (. . . . 1 . . . . . . . 1 . . .)
+pattern rim_pat (. . 1 . . . . . . . 1 . . . . .)
+pattern metal_pat (. 1 . . . . 1 . . . . 1 . . . .)
+
+// Sequence structure
+sequence melseq (intro_mel, verse_mel, chorus_mel, verse_mel, chorus_mel, bridge_mel, final_mel*2)
+sequence mel2seq (intro_mel, verse_mel, chorus_mel, verse_mel, chorus_mel, bridge_mel, final_mel*2)
+sequence bassseq (intro_bass, verse_bass, chorus_bass, verse_bass, chorus_bass, bridge_bass, final_bass*2)
+sequence kseq (intro_k, verse_k, chorus_k, verse_k, chorus_k, verse_k, final_k*2)
+sequence sseq (verse_s, verse_s, chorus_s, verse_s, chorus_s, verse_s, final_s*2)
+
+// Play
+playseq melseq lead fast 2 orn 0.3 alt slide 35 acc 0.25
+playseq mel2seq lead2 fast 4 density 0.6 slide 20 only 7-7
+playseq bassseq bass fast 1 density 0.95 slide 20
+playseq kseq k
+playseq sseq s
+play hats_8 hc fast 2 density 0.35 only 1-6
+play hats_16 hc fast 4 density 0.15 only 7-7
+play open_hat ho density 0.2 only 3-7
+play clap_pat c only 3-7
+play rim_pat rim density 0.6 only 7-7
+play metal_pat metal density 0.5 only 7-7

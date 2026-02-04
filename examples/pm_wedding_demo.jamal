@@ -1,0 +1,120 @@
+tempo_scale 1
+tempo 72
+tempo_map (intro=1.0,verse=1.01,chorus=1.04,bridge=1.0,final=1.06)
+root D3
+maqam hijaz
+
+// Physical modeling palette
+synth lead pm_pipe
+set lead cutoff 1500
+set lead res 0.32
+set lead atk 0.006
+set lead dec 0.16
+set lead sus 0.6
+set lead rel 0.2
+
+synth pluck pm_string
+set pluck cutoff 1900
+set pluck res 0.22
+set pluck atk 0.002
+set pluck dec 0.12
+set pluck sus 0.45
+set pluck rel 0.14
+set pluck amp 0.8
+
+synth bell pm_bell
+set bell cutoff 2400
+set bell res 0.18
+set bell atk 0.004
+set bell dec 0.22
+set bell sus 0.35
+set bell rel 0.3
+set bell amp 0.7
+
+// PM keyboard lead (wooden reed feel)
+synth keys pm_pipe
+set keys cutoff 1800
+set keys res 0.22
+set keys atk 0.003
+set keys dec 0.14
+set keys sus 0.5
+set keys rel 0.18
+set keys amp 0.42
+
+// Physical modeling drums
+synth k pm_kick
+synth s pm_snare
+synth hc pm_hat
+synth ho pm_hat
+synth clap pm_clap
+set s dec 0.06
+set hc dec 0.02
+set ho dec 0.08
+set clap dec 0.07
+
+// Zurna-like stabs (tight, short)
+synth z pm_pipe
+set z cutoff 2300
+set z res 0.25
+set z atk 0.002
+set z dec 0.07
+set z sus 0.15
+set z rel 0.07
+set z amp 0.75
+
+// Melodic patterns
+pattern intro_mel (1 . 2 . 3- . 4 . 3- . 2 . 1 . 2 .)
+pattern verse_mel (1 . 2 3- . 4 . 5 4 . 3- . 2 . 1 .)
+pattern chorus_mel (1'! . 7 . 6! . 7 . 6 . 5 . 6 . 7 .)
+pattern bridge_mel (5 . 4 . 3- . 2 . 1 . 2 . 3- . 4 .)
+pattern final_mel (1' . 7 . 6 . 7 . 1' . 2' . 1' . 7 .)
+
+// Keyboard hook (1-bar vocal-style)
+pattern hook_keys (1' . 7 . 6 . 7 . 1' . 2' . 1' . 7 .)
+pattern keys_pad (1 . . . 5 . . . 1 . . . 4 . . .)
+
+// Plucks / bell
+pattern pluck_intro (1 . 5 . 1 . 5 . 1 . 5 . 1 . 5 .)
+pattern pluck_verse (1 . 1 . 5 . 1 . 4 . 5 . 1 . 7,, .)
+pattern pluck_chorus (1 . 5 . 1 . 5 . 4 . 5 . 1 . 7,, .)
+pattern pluck_bridge (5,, . 1, . 4,, . 1, . 5,, . 1, . 7,, .)
+pattern pluck_final (1 1 5 1 1 5 1 7,, 1 1 5 1 4 5 1 7,,)
+pattern bell_hit (. . . . 1 . . . . . . . 1 . . .)
+
+// Drum patterns (dabke pulse)
+pattern k_intro (1 . . . 1 . . . 1 . . . 1 . . .)
+pattern k_verse (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+pattern k_chorus (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+pattern k_final (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+
+pattern s_verse (. . 1 . . . 1 . . . 1 . . . 1 .)
+pattern s_chorus (. . 1 . . . 1 . . . 1 . . . 1 .)
+pattern s_final (. . 1 . . . 1 . . . 1 . . . 1 .)
+
+pattern clap_pat (. . . . 1 . . . . . . . 1 . . .)
+pattern hats_8 (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+pattern open_hat (. . . . . 1 . . . . . 1 . . . .)
+
+// Zurna stabs (short calls)
+pattern z_call (. . 1 . . . 1 . . . 1 . . . 1 .)
+pattern z_hook (1 . . . 1 . . . 1 . . . 1 . . .)
+
+// Structure
+sequence melseq (intro_mel, verse_mel, chorus_mel, verse_mel, chorus_mel, bridge_mel, final_mel*2)
+sequence pluckseq (pluck_intro, pluck_verse, pluck_chorus, pluck_verse, pluck_chorus, pluck_bridge, pluck_final*2)
+sequence keyseq (keys_pad, keys_pad, hook_keys, keys_pad, hook_keys, keys_pad, hook_keys, hook_keys*2)
+sequence kseq (k_intro, k_verse, k_chorus, k_verse, k_chorus, k_verse, k_final*2)
+sequence sseq (s_verse, s_verse, s_chorus, s_verse, s_chorus, s_verse, s_final*2)
+
+// Play
+playseq melseq lead fast 2 orn 0.0 alt slide 16 acc 0.22
+playseq keyseq keys fast 2 slide 10 acc 0.16
+playseq pluckseq pluck fast 2 density 0.55 slide 10
+play bell_hit bell fast 1 density 0.5
+playseq kseq k
+playseq sseq s
+play clap_pat clap density 0.6
+play hats_8 hc fast 2 density 0.32
+play open_hat ho density 0.16
+play z_call z fast 2 density 0.45 only 3-7
+play z_hook z fast 2 density 0.6 only 7-7
