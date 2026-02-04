@@ -1,8 +1,6 @@
-# JAMAL (macOS CoreAudio)
+# JAMAL
 
-Minimal live-coding audio environment for macOS using CoreAudio only. The engine is written in C with a tiny DSL inspired by SuperCollider (synthesis) and TidalCycles (pattern sequencing). A small Cocoa UI provides a text editor, play/stop, and meters.
-
-Dedicated to Jamal Ahmad Hamza Khashoggi (13 October 1958 - 2 October 2018).
+JAMAL is a minimal live-coding audio environment for macOS using CoreAudio. The engine is written in C with a tiny DSL that's a loose cross between SuperCollider (synthesis) and TidalCycles (pattern sequencing). It is particularly suited to explorations of arabic scales in an electronic music context. A basic Cocoa UI provides a text editor, play/stop controls, and audio metering. Dedicated to Jamal Ahmad Hamza Khashoggi (13 October 1958 - 2 October 2018).
 
 ## Build & Run
 
