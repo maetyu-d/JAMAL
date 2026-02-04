@@ -1,0 +1,42 @@
+tempo 64
+maqam major
+root C3
+
+synth lead supersaw
+set lead amp 0.7
+set lead cutoff 1600
+set lead res 0.2
+set lead atk 0.01
+set lead dec 0.2
+set lead sus 0.6
+set lead rel 0.2
+
+synth k kick909
+set k amp 1.1
+set k dec 0.12
+set k rel 0.08
+
+// Fibonacci as raw degree series (wrapped with explicit octaves)
+pattern fib_notes (1 1 2 3 5 1' 6' 7'' .)
+
+// Fibonacci wrapped to one octave (explicit note names)
+pattern fib_oct (C3 C3 D3 E3 G3 C3 A3 B3 A3 A3 G3 F3 D3 A3 C3 B3 -)
+
+// Fibonacci rhythm (short spacing)
+pattern fib_rhythm_short (1 1 . 1 . . 1 . . . 1 . . . . . 1)
+
+// Fibonacci rhythm (long spacing up to 34 rests)
+pattern fib_rhythm_long (1 1 . 1 . . 1 . . . 1 . . . . . 1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1)
+
+// Fibonacci as section lengths (sequence repeats)
+pattern bass_a (1, . 5,, . 1, . 4,, .)
+pattern bass_b (1, 1, . 5,, . 4,, . 1,)
+
+sequence seqLead (fib_notes*1, fib_oct*1, fib_notes*2, fib_oct*3, fib_notes*5, fib_oct*8)
+sequence seqBass (bass_a*1, bass_b*1, bass_a*2, bass_b*3, bass_a*5, bass_b*8)
+
+// Play
+playseq seqLead lead
+play fib_rhythm_short k
+play fib_rhythm_long k slow 2
+playseq seqBass lead slow 2

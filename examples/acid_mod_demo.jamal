@@ -1,0 +1,135 @@
+tempo_scale 1
+tempo 64
+tempo_map (intro=1.0,verse=1.0,chorus=1.05,bridge=1.0,final=1.1)
+timesig 4/4
+root D3
+maqam hijaz
+master 0.95
+
+// Acid palette
+synth acid acid
+set acid amp 1.15
+set acid cutoff 1400
+set acid res 0.75
+set acid atk 0.002
+set acid dec 0.1
+set acid sus 0.45
+set acid rel 0.1
+
+synth bass acid
+set bass amp 1.05
+set bass cutoff 700
+set bass res 0.45
+set bass atk 0.003
+set bass dec 0.18
+set bass sus 0.5
+set bass rel 0.14
+
+synth super supersaw
+set super amp 0.95
+set super cutoff 1800
+set super res 0.2
+set super atk 0.01
+set super dec 0.25
+set super sus 0.75
+set super rel 0.35
+
+synth sb supersaw
+set sb amp 0.9
+set sb cutoff 900
+set sb res 0.28
+set sb atk 0.005
+set sb dec 0.22
+set sb sus 0.6
+set sb rel 0.18
+
+synth k kick909
+synth s snare909
+synth hc hat909
+synth ho hat808
+synth cr bitperc
+set k amp 1.1
+set s amp 1.25
+set hc amp 1.1
+set ho amp 1.1
+set cr amp 0.38
+set s dec 0.03
+set hc dec 0.015
+set ho dec 0.04
+set cr dec 0.03
+set k dec 0.12
+set k rel 0.08
+
+// Modulation (UGens)
+mod acid cutoff lfo 0.34 800 0 60 0
+mod acid cutoff env 0 220 0
+mod acid res env 0 0.2 0
+mod acid pan sample_hold 2.0 0.4 0 0 20
+mod acid pitch lfo 0.12 0.25 0
+
+mod bass cutoff lfo 0.2 220 0 60 0
+mod bass pan sync 0.5 0.2 0
+
+mod super cutoff lfo 0.18 1200 0 120 0
+mod super cutoff env 0 900 0
+mod super res lfo 0.09 0.18 0
+mod super pan sample_hold 0.5 0.6 0 0 80
+mod super pitch lfo 0.07 0.18 0
+mod super amp env 0 0.35 0
+
+mod sb cutoff lfo 0.12 500 0 80 0
+mod sb res env 0 0.18 0
+mod sb pitch lfo 0.04 0.1 0
+
+// Verse patterns (Hijaz)
+pattern a1 (1 7 3- 6 . 2 7 4 1' . 6 5 2' 4 7 3-)
+pattern a2 (1 . 4 3- 6 . 2 7 1' 7 . 5 4 . 2' 6)
+pattern a3 (1 3- 7 2 . 6 4 1' 7 . 5 3- 6 2 . 1')
+pattern a4 (1 . 2 . 6 4 . 7 1' . 5 . 3- 6 . 2')
+pattern ss1 (1' 6 4 7 1' . 5 6 4 7 1' . 6 5 4 7)
+pattern ss2 (1' . 5 6 4 7 1' 6 5 . 4 7 1' . 5 6)
+pattern ss3 (1' 7 6 5 4 6 7 1'' 7 5 4 6 7 1' 6 5)
+pattern ss4 (1' . 6 5 4 . 7 1'' 6 . 5 4 7 . 1')
+pattern sb1 (1,, . 1,, 5,, 1,, . 4,, 5,, . 1,, . 7,, 1,,)
+pattern sb2 (1,, 5,, . 1,, . 4,, 5,, . 1,, 7,, . 1,, .)
+
+pattern b1 (1, . 1, . 5,, 1, . 4,, . 5,, 1, . 7,, 1,)
+pattern b2 (1, . 5,, 1, . 4,, . 1, 5,, . 7,, 1, .)
+pattern b3 (1, 1, . 5,, . 1, . 4,, 5,, . 1, . 7,, . 1,)
+
+pattern k1 (1 . . 1 . . . . 1 . 1 . . . 1 .)
+pattern s1 (. . 1 . . 1 . . . . 1 . . 1 . .)
+pattern h1 (1 . . 1 . 1 . . 1 . 1 . . 1 . .)
+pattern oh (. . . . . 1 . . . . . . 1 . . .)
+
+// Chorus patterns (Lydian)
+maqam lydian
+pattern c1 (1 4 5 6 7 6 5 4 1' 7 6 5 4 3 2 1)
+pattern c2 (1 4 6 5 . 7 6 4 1' . 7 6 5 4 3 2)
+pattern cb1 (1, 4,, 1, . 5,, 1, . 4,, 1, . 7,, 1, .)
+pattern cs1 (1' 4 6 5 4 7 6 4 1'' 7 6 5 4 6 7 4)
+pattern cs2 (1' 4 5 6 4 7 6 4 1'' 6 5 4 7 6 4 1')
+pattern sbc1 (1,, 4,, 1,, . 5,, 1,, . 4,, 1,, . 7,, 1,, .)
+
+// Verse -> Chorus -> Verse structure
+sequence seqA (a1*2, c1*2, a2*2)
+sequence seqB (b1*2, cb1*2, b2*2)
+sequence seqS (ss1*2, cs1*2, ss2*2)
+sequence seqSB (sb1*2, sbc1*2, sb2*2)
+
+// Play
+playseq seqA acid fast 2 slide 14 acc 0.35
+playseq seqB bass fast 1 slide 18
+playseq seqS super slow 1
+playseq seqS super fast 2 density 0.6 slide 8
+playseq seqSB sb slow 1
+play k1 k
+play s1 s
+play h1 hc fast 2 density 0.28 only 1-1
+play h1 hc fast 2 density 0.28 only 3-3
+play oh ho density 0.18 only 1-1
+play oh ho density 0.18 only 3-3
+play s1 cr density 0.6 only 1-1
+play s1 cr density 0.6 only 3-3
+play h1 cr fast 2 density 0.18 only 1-1
+play h1 cr fast 2 density 0.18 only 3-3

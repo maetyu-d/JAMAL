@@ -143,6 +143,10 @@ static int parse_synth_type(const char *token, SynthType *out_type) {
         *out_type = SYNTH_SAW;
         return 1;
     }
+    if (strcmp(token, "supersaw") == 0) {
+        *out_type = SYNTH_SUPERSAW;
+        return 1;
+    }
     if (strcmp(token, "square") == 0) {
         *out_type = SYNTH_SQUARE;
         return 1;
@@ -340,6 +344,54 @@ static void set_maqam(Program *program, const char *name) {
         memcpy(program->maqam_offsets, offsets, sizeof(offsets));
     } else if (strcmp(name, "kurd") == 0) {
         float offsets[7] = {0, 100, 300, 500, 700, 800, 1000};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "lydian") == 0) {
+        float offsets[7] = {0, 200, 400, 600, 700, 900, 1100};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "major") == 0 || strcmp(name, "ionian") == 0) {
+        float offsets[7] = {0, 200, 400, 500, 700, 900, 1100};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "minor") == 0 || strcmp(name, "aeolian") == 0) {
+        float offsets[7] = {0, 200, 300, 500, 700, 800, 1000};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "dorian") == 0) {
+        float offsets[7] = {0, 200, 300, 500, 700, 900, 1000};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "phrygian") == 0) {
+        float offsets[7] = {0, 100, 300, 500, 700, 800, 1000};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "mixolydian") == 0) {
+        float offsets[7] = {0, 200, 400, 500, 700, 900, 1000};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "locrian") == 0) {
+        float offsets[7] = {0, 100, 300, 500, 600, 800, 1000};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "harmonic_minor") == 0 || strcmp(name, "harmonic-minor") == 0) {
+        float offsets[7] = {0, 200, 300, 500, 700, 800, 1100};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "melodic_minor") == 0 || strcmp(name, "melodic-minor") == 0) {
+        float offsets[7] = {0, 200, 300, 500, 700, 900, 1100};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "pentatonic_major") == 0 || strcmp(name, "pentatonic-major") == 0 || strcmp(name, "pentatonic") == 0) {
+        float offsets[7] = {0, 200, 400, 700, 900, 1200, 1400};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "pentatonic_minor") == 0 || strcmp(name, "pentatonic-minor") == 0) {
+        float offsets[7] = {0, 300, 500, 700, 1000, 1200, 1400};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "blues") == 0 || strcmp(name, "blues_minor") == 0 || strcmp(name, "blues-minor") == 0) {
+        float offsets[7] = {0, 300, 500, 600, 700, 1000, 1200};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "blues_major") == 0 || strcmp(name, "blues-major") == 0) {
+        float offsets[7] = {0, 200, 300, 400, 700, 900, 1200};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "whole_tone") == 0 || strcmp(name, "whole-tone") == 0) {
+        float offsets[7] = {0, 200, 400, 600, 800, 1000, 1200};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "octatonic") == 0 || strcmp(name, "octatonic_wh") == 0 || strcmp(name, "octatonic-wh") == 0) {
+        float offsets[7] = {0, 200, 300, 500, 600, 800, 900};
+        memcpy(program->maqam_offsets, offsets, sizeof(offsets));
+    } else if (strcmp(name, "octatonic_hw") == 0 || strcmp(name, "octatonic-hw") == 0) {
+        float offsets[7] = {0, 100, 300, 400, 600, 700, 900};
         memcpy(program->maqam_offsets, offsets, sizeof(offsets));
     }
 }
@@ -698,6 +750,7 @@ static void set_default_synth(SynthDef *synth) {
     synth->comb_feedback = 0.85f;
     synth->comb_damp = 0.2f;
     synth->comb_excite = 0.7f;
+    synth->mod_count = 0;
 }
 
 static void set_default_track(TrackDef *track) {
@@ -1129,6 +1182,90 @@ int dsl_parse_script(const char *script, Program *out_program, char *error, size
                 free(script_copy);
                 return 0;
             }
+            continue;
+        }
+
+        if (strcmp(cmd, "mod") == 0) {
+            char synth_name[DSL_MAX_NAME] = {0};
+            char dest_token[32] = {0};
+            char src_token[32] = {0};
+            char rate_token[32] = {0};
+            char depth_token[32] = {0};
+            char offset_token[32] = {0};
+            char lag_token[32] = {0};
+            char slew_token[32] = {0};
+            if (!next_token(&cursor, synth_name, sizeof(synth_name), 0) ||
+                !next_token(&cursor, dest_token, sizeof(dest_token), 0) ||
+                !next_token(&cursor, src_token, sizeof(src_token), 0) ||
+                !next_token(&cursor, rate_token, sizeof(rate_token), 0) ||
+                !next_token(&cursor, depth_token, sizeof(depth_token), 0)) {
+                snprintf(error, error_len, "Line %d: mod requires synth dest source rate depth [offset] [lag] [slew]", line_num);
+                free(script_copy);
+                return 0;
+            }
+
+            int idx = dsl_find_synth(out_program, synth_name);
+            if (idx < 0) {
+                snprintf(error, error_len, "Line %d: unknown synth '%s'", line_num, synth_name);
+                free(script_copy);
+                return 0;
+            }
+            SynthDef *synth = &out_program->synths[idx];
+            if (synth->mod_count >= 32) {
+                snprintf(error, error_len, "Line %d: too many mods for synth '%s' (max 32)", line_num, synth_name);
+                free(script_copy);
+                return 0;
+            }
+
+            ModDest dest;
+            if (strcmp(dest_token, "amp") == 0) dest = MOD_DEST_AMP;
+            else if (strcmp(dest_token, "cutoff") == 0) dest = MOD_DEST_CUTOFF;
+            else if (strcmp(dest_token, "res") == 0) dest = MOD_DEST_RES;
+            else if (strcmp(dest_token, "pan") == 0) dest = MOD_DEST_PAN;
+            else if (strcmp(dest_token, "pitch") == 0) dest = MOD_DEST_PITCH;
+            else {
+                snprintf(error, error_len, "Line %d: unknown mod dest '%s'", line_num, dest_token);
+                free(script_copy);
+                return 0;
+            }
+
+            ModSource src;
+            if (strcmp(src_token, "lfo") == 0) src = MOD_SRC_LFO;
+            else if (strcmp(src_token, "env") == 0) src = MOD_SRC_ENV;
+            else if (strcmp(src_token, "noise") == 0) src = MOD_SRC_NOISE;
+            else if (strcmp(src_token, "sample_hold") == 0 || strcmp(src_token, "s&h") == 0) src = MOD_SRC_SAMPLE_HOLD;
+            else if (strcmp(src_token, "ring") == 0) src = MOD_SRC_RING;
+            else if (strcmp(src_token, "sync") == 0) src = MOD_SRC_SYNC;
+            else {
+                snprintf(error, error_len, "Line %d: unknown mod source '%s'", line_num, src_token);
+                free(script_copy);
+                return 0;
+            }
+
+            float rate = (float)atof(rate_token);
+            float depth = (float)atof(depth_token);
+            float offset = 0.0f;
+            float lag_ms = 0.0f;
+            float slew_ms = 0.0f;
+
+            if (next_token(&cursor, offset_token, sizeof(offset_token), 0)) {
+                offset = (float)atof(offset_token);
+                if (next_token(&cursor, lag_token, sizeof(lag_token), 0)) {
+                    lag_ms = (float)atof(lag_token);
+                    if (next_token(&cursor, slew_token, sizeof(slew_token), 0)) {
+                        slew_ms = (float)atof(slew_token);
+                    }
+                }
+            }
+
+            ModDef *mod = &synth->mods[synth->mod_count++];
+            mod->dest = dest;
+            mod->source = src;
+            mod->rate = rate;
+            mod->depth = depth;
+            mod->offset = offset;
+            mod->lag_ms = lag_ms;
+            mod->slew_ms = slew_ms;
             continue;
         }
 

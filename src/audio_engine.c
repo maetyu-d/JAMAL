@@ -56,6 +56,13 @@ typedef struct {
     float comb_state;
     float crush_hold;
     int crush_count;
+    float base_freq;
+    float pan;
+    int mod_count;
+    ModDef mods[32];
+    float mod_phase[32];
+    float mod_hold[32];
+    float mod_state[32];
 } Voice;
 
 typedef struct {
@@ -176,6 +183,19 @@ static float osc_sample(Voice *voice) {
         case SYNTH_SAW: {
             float x = voice->phase / (2.0f * (float)M_PI);
             sample = 2.0f * (x - floorf(x + 0.5f));
+            break;
+        }
+        case SYNTH_SUPERSAW: {
+            static const float detune_cents[7] = {-12.0f, -7.0f, -3.0f, 0.0f, 3.0f, 7.0f, 12.0f};
+            float sum = 0.0f;
+            for (int i = 0; i < 7; i++) {
+                float ratio = powf(2.0f, detune_cents[i] / 1200.0f);
+                float ph = voice->phase * ratio + (float)i * 0.47f;
+                float x = ph / (2.0f * (float)M_PI);
+                float saw = 2.0f * (x - floorf(x + 0.5f));
+                sum += saw;
+            }
+            sample = sum / 7.0f;
             break;
         }
         case SYNTH_SQUARE:
@@ -349,6 +369,73 @@ static float one_pole_hp(float input, float cutoff_hz, double sample_rate, float
     return input - lp;
 }
 
+static float mod_source_value(Voice *voice, const ModDef *mod, int idx, double sample_rate) {
+    float val = 0.0f;
+    float phase_inc = 2.0f * (float)M_PI * mod->rate / (float)sample_rate;
+    switch (mod->source) {
+        case MOD_SRC_LFO:
+            val = sinf(voice->mod_phase[idx]);
+            voice->mod_phase[idx] += phase_inc;
+            break;
+        case MOD_SRC_ENV:
+            val = (voice->env * 2.0f) - 1.0f;
+            break;
+        case MOD_SRC_NOISE:
+            voice->rng = voice->rng * 1664525u + 1013904223u;
+            val = ((voice->rng >> 8) / 8388608.0f) - 1.0f;
+            break;
+        case MOD_SRC_SAMPLE_HOLD: {
+            if (mod->rate <= 0.0f) {
+                val = voice->mod_hold[idx];
+            } else {
+                voice->mod_phase[idx] += phase_inc;
+                if (voice->mod_phase[idx] >= 2.0f * (float)M_PI) {
+                    voice->mod_phase[idx] -= 2.0f * (float)M_PI;
+                    voice->rng = voice->rng * 1664525u + 1013904223u;
+                    voice->mod_hold[idx] = ((voice->rng >> 8) / 8388608.0f) - 1.0f;
+                }
+                val = voice->mod_hold[idx];
+            }
+            break;
+        }
+        case MOD_SRC_RING: {
+            float a = sinf(voice->mod_phase[idx]);
+            float b = sinf(voice->mod_phase[idx] * 2.0f);
+            val = a * b;
+            voice->mod_phase[idx] += phase_inc;
+            break;
+        }
+        case MOD_SRC_SYNC: {
+            float p = fmodf(voice->mod_phase[idx] / (2.0f * (float)M_PI), 1.0f);
+            val = p * 2.0f - 1.0f;
+            voice->mod_phase[idx] += phase_inc;
+            break;
+        }
+    }
+    if (voice->mod_phase[idx] >= 2.0f * (float)M_PI) {
+        voice->mod_phase[idx] -= 2.0f * (float)M_PI;
+    }
+
+    // Lag (one-pole)
+    if (mod->lag_ms > 0.0f) {
+        float alpha = expf(-1.0f / (mod->lag_ms * 0.001f * (float)sample_rate));
+        voice->mod_state[idx] = (1.0f - alpha) * val + alpha * voice->mod_state[idx];
+        val = voice->mod_state[idx];
+    }
+
+    // Slew (rate limit)
+    if (mod->slew_ms > 0.0f) {
+        float max_delta = 1.0f / (mod->slew_ms * 0.001f * (float)sample_rate);
+        float delta = val - voice->mod_state[idx];
+        if (delta > max_delta) delta = max_delta;
+        if (delta < -max_delta) delta = -max_delta;
+        voice->mod_state[idx] += delta;
+        val = voice->mod_state[idx];
+    }
+
+    return val;
+}
+
 static void voice_note_on(Voice *voice,
                           const SynthDef *synth,
                           float freq,
@@ -375,6 +462,8 @@ static void voice_note_on(Voice *voice,
         voice->glide_step = 0.0f;
         voice->freq = freq;
     }
+    voice->base_freq = freq;
+    voice->pan = 0.0f;
     if (voice->type == SYNTH_HAT_C || voice->type == SYNTH_HAT_O ||
         voice->type == SYNTH_HAT808 || voice->type == SYNTH_HAT909) {
         voice->freq = (voice->type == SYNTH_HAT808) ? 7000.0f : 9000.0f;
@@ -394,6 +483,13 @@ static void voice_note_on(Voice *voice,
     voice->accent = accent ? 1.0f : 0.0f;
     voice->svf_lp = 0.0f;
     voice->svf_bp = 0.0f;
+    voice->mod_count = synth->mod_count;
+    for (int i = 0; i < voice->mod_count && i < 32; i++) {
+        voice->mods[i] = synth->mods[i];
+        voice->mod_phase[i] = 0.0f;
+        voice->mod_hold[i] = 0.0f;
+        voice->mod_state[i] = 0.0f;
+    }
     voice->crush_hold = 0.0f;
     voice->crush_count = 0;
     if (voice->type == SYNTH_COMB) {
@@ -592,15 +688,51 @@ static float voice_render(Voice *voice, double sample_rate) {
         if (voice->pitch_env < 0.0f) voice->pitch_env = 0.0f;
     }
 
+    float mod_amp = 1.0f;
+    float mod_cutoff = 0.0f;
+    float mod_res = 0.0f;
+    float mod_pan = 0.0f;
+    float mod_pitch = 0.0f;
+    for (int i = 0; i < voice->mod_count && i < 32; i++) {
+        float val = mod_source_value(voice, &voice->mods[i], i, sample_rate);
+        float mod = voice->mods[i].offset + voice->mods[i].depth * val;
+        switch (voice->mods[i].dest) {
+            case MOD_DEST_AMP:
+                mod_amp *= (1.0f + mod);
+                break;
+            case MOD_DEST_CUTOFF:
+                mod_cutoff += mod;
+                break;
+            case MOD_DEST_RES:
+                mod_res += mod;
+                break;
+            case MOD_DEST_PAN:
+                mod_pan += mod;
+                break;
+            case MOD_DEST_PITCH:
+                mod_pitch += mod;
+                break;
+        }
+    }
+
+    float freq = voice->freq;
+    if (mod_pitch != 0.0f) {
+        freq = voice->freq * powf(2.0f, mod_pitch / 12.0f);
+    }
+    voice->pan = fmaxf(-1.0f, fminf(1.0f, mod_pan));
+
     float sample = osc_sample(voice);
 
-    float phase_inc = 2.0f * (float)M_PI * voice->freq / (float)sample_rate;
+    float phase_inc = 2.0f * (float)M_PI * freq / (float)sample_rate;
     voice->phase += phase_inc;
     if (voice->phase >= 2.0f * (float)M_PI) {
         voice->phase -= 2.0f * (float)M_PI;
     }
 
     float processed = sample;
+    float cutoff = voice->cutoff + mod_cutoff;
+    if (cutoff < 10.0f) cutoff = 10.0f;
+    float res = fminf(0.99f, fmaxf(0.0f, voice->res + mod_res));
     if (voice->type == SYNTH_HAT_C || voice->type == SYNTH_HAT_O || voice->type == SYNTH_HAT808 || voice->type == SYNTH_HAT909 ||
         voice->type == SYNTH_PM_HAT || voice->type == SYNTH_PM_SNARE || voice->type == SYNTH_PM_CLAP ||
         voice->type == SYNTH_RIM || voice->type == SYNTH_SNARE || voice->type == SYNTH_SNARE808 || voice->type == SYNTH_SNARE909 ||
@@ -611,10 +743,10 @@ static float voice_render(Voice *voice, double sample_rate) {
     // Acid: 303-ish resonant low-pass with envelope modulation.
     if (voice->type == SYNTH_ACID) {
         float env_depth = 2600.0f + voice->accent * 800.0f;
-        float cutoff = voice->cutoff + voice->env * env_depth + voice->accent * 200.0f;
-        float res = fminf(0.97f, voice->res + voice->accent * 0.1f);
-        processed = svf_lpf(voice, processed, cutoff, res, sample_rate);
-        processed = svf_lpf(voice, processed, cutoff, res, sample_rate); // 2x oversample approx
+        float cut = cutoff + voice->env * env_depth + voice->accent * 200.0f;
+        float r = fminf(0.97f, res + voice->accent * 0.1f);
+        processed = svf_lpf(voice, processed, cut, r, sample_rate);
+        processed = svf_lpf(voice, processed, cut, r, sample_rate); // 2x oversample approx
         processed = tanhf(processed * (2.0f + voice->accent * 0.55f));
     } else if (voice->type == SYNTH_SNARE || voice->type == SYNTH_SNARE808 || voice->type == SYNTH_SNARE909 || voice->type == SYNTH_PM_SNARE) {
         float band = one_pole_lp(processed, 2400.0f, sample_rate, &voice->filter_state);
@@ -630,7 +762,7 @@ static float voice_render(Voice *voice, double sample_rate) {
         float band = one_pole_lp(processed, 9000.0f, sample_rate, &voice->filter_state);
         processed = band;
     } else {
-        float alpha = expf(-2.0f * (float)M_PI * voice->cutoff / (float)sample_rate);
+        float alpha = expf(-2.0f * (float)M_PI * cutoff / (float)sample_rate);
         voice->filter_state = (1.0f - alpha) * processed + alpha * voice->filter_state;
         processed = voice->filter_state;
     }
@@ -668,7 +800,9 @@ static float voice_render(Voice *voice, double sample_rate) {
     }
 
     voice->age++;
-    return processed * voice->env * voice->amp;
+    float amp = voice->amp * mod_amp;
+    if (amp < 0.0f) amp = 0.0f;
+    return processed * voice->env * amp;
 }
 
 static int track_cycle_steps(const TrackRuntime *track, const PatternDef *pattern) {
@@ -988,35 +1122,47 @@ static OSStatus render_callback(void *in_ref_con,
             }
         }
 
-        float mix = 0.0f;
+        float mix_l = 0.0f;
+        float mix_r = 0.0f;
         for (int v = 0; v < MAX_VOICES; v++) {
-            mix += voice_render(&engine->voices[v], engine->sample_rate);
+            Voice *voice = &engine->voices[v];
+            float sample = voice_render(voice, engine->sample_rate);
+            if (sample == 0.0f) continue;
+            float pan = voice->pan;
+            float pan_l = 0.5f * (1.0f - pan);
+            float pan_r = 0.5f * (1.0f + pan);
+            mix_l += sample * pan_l;
+            mix_r += sample * pan_r;
         }
-        mix *= engine->program.master_amp;
+        mix_l *= engine->program.master_amp;
+        mix_r *= engine->program.master_amp;
         if (engine->bit_depth == 16) {
-            mix = floorf(mix * 32767.0f) / 32767.0f;
+            mix_l = floorf(mix_l * 32767.0f) / 32767.0f;
+            mix_r = floorf(mix_r * 32767.0f) / 32767.0f;
         } else if (engine->bit_depth == 24) {
-            mix = floorf(mix * 8388607.0f) / 8388607.0f;
+            mix_l = floorf(mix_l * 8388607.0f) / 8388607.0f;
+            mix_r = floorf(mix_r * 8388607.0f) / 8388607.0f;
         }
 
-        float absMix = fabsf(mix);
-        if (absMix > 1.0f) {
+        float absL = fabsf(mix_l);
+        float absR = fabsf(mix_r);
+        if (absL > 1.0f || absR > 1.0f) {
             clip = 1;
         }
         if (interleaved) {
-            out_l[frame * 2] = mix;
-            out_l[frame * 2 + 1] = mix;
-            if (absMix > peak_l) peak_l = absMix;
-            if (absMix > peak_r) peak_r = absMix;
+            out_l[frame * 2] = mix_l;
+            out_l[frame * 2 + 1] = mix_r;
+            if (absL > peak_l) peak_l = absL;
+            if (absR > peak_r) peak_r = absR;
         } else {
-            out_l[frame] = mix;
-            out_r[frame] = mix;
-            if (absMix > peak_l) peak_l = absMix;
-            if (absMix > peak_r) peak_r = absMix;
+            out_l[frame] = mix_l;
+            out_r[frame] = mix_r;
+            if (absL > peak_l) peak_l = absL;
+            if (absR > peak_r) peak_r = absR;
         }
 
-        rms_l += mix * mix;
-        rms_r += mix * mix;
+        rms_l += mix_l * mix_l;
+        rms_r += mix_r * mix_r;
     }
 
     rms_l = sqrtf(rms_l / (float)in_number_frames);

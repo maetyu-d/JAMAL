@@ -15,6 +15,7 @@
 typedef enum {
     SYNTH_SINE,
     SYNTH_SAW,
+    SYNTH_SUPERSAW,
     SYNTH_SQUARE,
     SYNTH_TRI,
     SYNTH_NOISE,
@@ -51,6 +52,33 @@ typedef enum {
     SYNTH_PM_TOM
 } SynthType;
 
+typedef enum {
+    MOD_SRC_LFO,
+    MOD_SRC_ENV,
+    MOD_SRC_NOISE,
+    MOD_SRC_SAMPLE_HOLD,
+    MOD_SRC_RING,
+    MOD_SRC_SYNC
+} ModSource;
+
+typedef enum {
+    MOD_DEST_AMP,
+    MOD_DEST_CUTOFF,
+    MOD_DEST_RES,
+    MOD_DEST_PAN,
+    MOD_DEST_PITCH
+} ModDest;
+
+typedef struct ModDef {
+    ModSource source;
+    ModDest dest;
+    float rate;
+    float depth;
+    float offset;
+    float lag_ms;
+    float slew_ms;
+} ModDef;
+
 typedef struct {
     char name[DSL_MAX_NAME];
     SynthType type;
@@ -64,6 +92,8 @@ typedef struct {
     float comb_feedback;
     float comb_damp;
     float comb_excite;
+    int mod_count;
+    ModDef mods[32];
 } SynthDef;
 
 typedef struct {

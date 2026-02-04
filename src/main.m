@@ -843,10 +843,11 @@
     NSOpenPanel *panel = [NSOpenPanel openPanel];
     UTType *jamalType = [UTType typeWithFilenameExtension:@"jamal"];
     if (jamalType) {
-        panel.allowedContentTypes = @[ jamalType, UTTypePlainText ];
+        panel.allowedContentTypes = @[ jamalType, UTTypePlainText, UTTypeData ];
     } else {
-        panel.allowedContentTypes = @[ UTTypePlainText ];
+        panel.allowedContentTypes = @[ UTTypePlainText, UTTypeData ];
     }
+    panel.allowsOtherFileTypes = YES;
     panel.allowsMultipleSelection = NO;
     panel.canChooseDirectories = NO;
     panel.canChooseFiles = YES;
