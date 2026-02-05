@@ -2,8 +2,6 @@
 
 This manual covers JAMAL's language, audio engine features, and workflow. It includes a tutorial, a full reference, and practical examples.
 
-If anything here feels unclear, tell me and I will update the manual to match your preferred style.
-
 ---
 
 ## Quick Start
@@ -309,20 +307,6 @@ Parameters:
 
 ---
 
-## Common Errors
-
-### "Pattern must have at least one step"
-- The pattern is empty or invalid.
-- Patterns must be on a single line.
-
-### "Unknown playseq option"
-- Option not supported or typo.
-
-### ".jamal file is greyed out"
-- Load dialog now supports `.jamal` and text files, but if it still greys out, set file type to “All files”.
-
----
-
 ## Example: Acid Track
 
 ```jamal
@@ -342,7 +326,7 @@ play a1 acid fast 2 acc 0.3
 
 ---
 
-## Example: Radigue‑style Supersaw Drone
+## Example: Radigue‑style Drone
 
 ```jamal
 tempo 48
@@ -401,15 +385,3 @@ playseq seqM tone fast 3 stut 2
 
 ---
 
-## Changelog Notes (Local)
-
-Key features currently supported:
-- Supersaw (10‑voice detune with per‑voice LFO drift)
-- Modulation UGens
-- `drive` param
-- `timesig_seq` (bar‑by‑bar signatures)
-- `rev trans` and `offset` (bar delay for reversed tracks)
-
----
-
-If you want this manual exported to PDF or displayed inside the app, tell me and I’ll add it.
