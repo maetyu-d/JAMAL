@@ -1,8 +1,6 @@
 # JAMAL (macOS CoreAudio)
 
-Minimal live-coding audio environment for macOS using CoreAudio only. The engine is written in C with a tiny DSL inspired by SuperCollider (synthesis) and TidalCycles (pattern sequencing). A small Cocoa UI provides a text editor, play/stop, and meters.
-
-Dedicated to Jamal Ahmad Hamza Khashoggi (13 October 1958 - 2 October 2018).
+JAMAL is a minimal live-coding audio environment for macOS using CoreAudio. The engine is written in C with a tiny DSL inspired by SuperCollider (synthesis) and TidalCycles (pattern sequencing). A small Cocoa UI provides a text editor, play/stop, and audio metering. It can do some other things too, but is primarily intended to enable exploration of arabic scales based on quartertones in an electronic music context (electronic as in Aphex, not electronic as in Schaeffer). It's obviously unlikely that audio software can do much to bring change to a world desperately in need of it almost everywhere we might look, but, as a small gesture, JAMAL is dedicated to [Jamal Ahmad Hamza Khashoggi](https://en.wikipedia.org/wiki/Jamal_Khashoggi) (13 October 1958 - 2 October 2018).
 
 ## Build & Run
 
@@ -109,13 +107,4 @@ play main lead fast 2 density 0.8
   Per-step accent: add `!` to a note token (e.g., `1! 3-! 5`)
   Per-note slide: append `~<ms>` to a note token (e.g., `3~60`, `C4~80`, `60~40`)
 
-## Notes
 
-- Buffer size is targeted at 256 frames (low latency).
-- Live coding is immediate on Play: the script is re-parsed and the engine restarts with the new program.
-
-## Next Ideas
-
-- Multiple pattern layers with independent speeds
-- Per-track tempo multipliers and pattern transforms (slow/fast, reverse, every, density)
-- More SuperCollider-like UGens and modulation
