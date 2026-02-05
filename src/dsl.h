@@ -92,6 +92,9 @@ typedef struct {
     float comb_feedback;
     float comb_damp;
     float comb_excite;
+    float detune_rate;
+    float detune_depth;
+    float drive;
     int mod_count;
     ModDef mods[32];
 } SynthDef;
@@ -138,7 +141,9 @@ typedef struct {
     int every;
     float density;
     int rev;
+    int rev_transpose;
     int palindrome;
+    int offset_bars;
     int iter;
     int chunk;
     int stut;
@@ -160,6 +165,9 @@ typedef struct {
     int time_sig_num_map[16]; // section index 1..14
     int time_sig_den_map[16];
     int time_sig_enforce;
+    int time_sig_seq_len;
+    int time_sig_seq_num[1024];
+    int time_sig_seq_den[1024];
 
     int synth_count;
     SynthDef synths[DSL_MAX_SYNTHS];

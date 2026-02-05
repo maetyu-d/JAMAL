@@ -20,6 +20,7 @@ static void set_default_program(Program *program) {
         program->time_sig_den_map[i] = 4;
     }
     program->time_sig_enforce = 0;
+    program->time_sig_seq_len = 0;
     float neutral[7] = {0, 200, 400, 500, 700, 900, 1100};
     memcpy(program->maqam_offsets, neutral, sizeof(neutral));
 }
@@ -45,7 +46,7 @@ static int parse_time_sig(const char *token, int *out_num, int *out_den) {
     if (num < 1 || num > 32) {
         return 0;
     }
-    if (!(den == 1 || den == 2 || den == 4 || den == 8 || den == 16 || den == 32)) {
+    if (den < 1 || den > 32) {
         return 0;
     }
     *out_num = num;
@@ -62,12 +63,8 @@ static int pad_pattern_to_timesig(const Program *program, PatternDef *pattern, c
     if (num <= 0 || den <= 0) {
         return 1;
     }
-    if (16 % den != 0) {
-        snprintf(error, error_len, "timesig_enforce only supports denominators 1,2,4,8,16");
-        return 0;
-    }
-    int steps_per_beat = 16 / den;
-    int bar_steps = num * steps_per_beat;
+    float steps_per_beat = 16.0f / (float)den;
+    int bar_steps = (int)lroundf((float)num * steps_per_beat);
     if (bar_steps <= 0) {
         return 1;
     }
@@ -750,6 +747,9 @@ static void set_default_synth(SynthDef *synth) {
     synth->comb_feedback = 0.85f;
     synth->comb_damp = 0.2f;
     synth->comb_excite = 0.7f;
+    synth->detune_rate = 0.02f;
+    synth->detune_depth = 2.5f;
+    synth->drive = 0.0f;
     synth->mod_count = 0;
 }
 
@@ -764,7 +764,9 @@ static void set_default_track(TrackDef *track) {
     track->every = 1;
     track->density = 1.0f;
     track->rev = 0;
+    track->rev_transpose = 0;
     track->palindrome = 0;
+    track->offset_bars = 0;
     track->iter = 1;
     track->chunk = 0;
     track->stut = 1;
@@ -1052,6 +1054,52 @@ int dsl_parse_script(const char *script, Program *out_program, char *error, size
             continue;
         }
 
+        if (strcmp(cmd, "timesig_seq") == 0) {
+            char seq[512] = {0};
+            if (!next_token(&cursor, seq, sizeof(seq), 1)) {
+                snprintf(error, error_len, "Line %d: timesig_seq requires values", line_num);
+                free(script_copy);
+                return 0;
+            }
+            char copy[512];
+            strncpy(copy, seq, sizeof(copy) - 1);
+            copy[sizeof(copy) - 1] = '\0';
+            char *c = copy;
+            int count = 0;
+            while (*c) {
+                while (*c && (isspace((unsigned char)*c) || *c == ',')) c++;
+                if (!*c) break;
+                char token[32] = {0};
+                size_t i = 0;
+                while (*c && !isspace((unsigned char)*c) && *c != ',') {
+                    if (i + 1 < sizeof(token)) token[i++] = *c;
+                    c++;
+                }
+                token[i] = '\0';
+                int num = 0, den = 0;
+                if (!parse_time_sig(token, &num, &den)) {
+                    snprintf(error, error_len, "Line %d: invalid timesig '%s'", line_num, token);
+                    free(script_copy);
+                    return 0;
+                }
+                if (count >= (int)(sizeof(out_program->time_sig_seq_num) / sizeof(out_program->time_sig_seq_num[0]))) {
+                    snprintf(error, error_len, "Line %d: timesig_seq too long", line_num);
+                    free(script_copy);
+                    return 0;
+                }
+                out_program->time_sig_seq_num[count] = num;
+                out_program->time_sig_seq_den[count] = den;
+                count++;
+            }
+            if (count == 0) {
+                snprintf(error, error_len, "Line %d: timesig_seq requires at least one entry", line_num);
+                free(script_copy);
+                return 0;
+            }
+            out_program->time_sig_seq_len = count;
+            continue;
+        }
+
         if (strcmp(cmd, "root") == 0) {
             char root_token[32] = {0};
             if (!next_token(&cursor, root_token, sizeof(root_token), 0)) {
@@ -1177,6 +1225,9 @@ int dsl_parse_script(const char *script, Program *out_program, char *error, size
             else if (strcmp(param, "feedback") == 0) synth->comb_feedback = v;
             else if (strcmp(param, "damp") == 0) synth->comb_damp = v;
             else if (strcmp(param, "excite") == 0) synth->comb_excite = v;
+            else if (strcmp(param, "detune_rate") == 0) synth->detune_rate = v;
+            else if (strcmp(param, "detune_depth") == 0) synth->detune_depth = v;
+            else if (strcmp(param, "drive") == 0) synth->drive = v;
             else {
                 snprintf(error, error_len, "Line %d: unknown param '%s'", line_num, param);
                 free(script_copy);
@@ -1435,6 +1486,27 @@ int dsl_parse_script(const char *script, Program *out_program, char *error, size
                     track->rev = 1;
                     continue;
                 }
+                if (strcmp(token, "trans") == 0) {
+                    char value[32] = {0};
+                    if (!next_token(&cursor, value, sizeof(value), 0)) {
+                        snprintf(error, error_len, "Line %d: trans requires semitone value", line_num);
+                        free(script_copy);
+                        return 0;
+                    }
+                    track->rev_transpose = atoi(value);
+                    continue;
+                }
+                if (strcmp(token, "offset") == 0) {
+                    char value[32] = {0};
+                    if (!next_token(&cursor, value, sizeof(value), 0)) {
+                        snprintf(error, error_len, "Line %d: offset requires bar count", line_num);
+                        free(script_copy);
+                        return 0;
+                    }
+                    track->offset_bars = atoi(value);
+                    if (track->offset_bars < 0) track->offset_bars = 0;
+                    continue;
+                }
                 if (strcmp(token, "only") == 0) {
                     char range[32] = {0};
                     if (!next_token(&cursor, range, sizeof(range), 0)) {
@@ -1627,6 +1699,27 @@ int dsl_parse_script(const char *script, Program *out_program, char *error, size
                 }
                 if (strcmp(token, "rev") == 0) {
                     track->rev = 1;
+                    continue;
+                }
+                if (strcmp(token, "trans") == 0) {
+                    char value[32] = {0};
+                    if (!next_token(&cursor, value, sizeof(value), 0)) {
+                        snprintf(error, error_len, "Line %d: trans requires semitone value", line_num);
+                        free(script_copy);
+                        return 0;
+                    }
+                    track->rev_transpose = atoi(value);
+                    continue;
+                }
+                if (strcmp(token, "offset") == 0) {
+                    char value[32] = {0};
+                    if (!next_token(&cursor, value, sizeof(value), 0)) {
+                        snprintf(error, error_len, "Line %d: offset requires bar count", line_num);
+                        free(script_copy);
+                        return 0;
+                    }
+                    track->offset_bars = atoi(value);
+                    if (track->offset_bars < 0) track->offset_bars = 0;
                     continue;
                 }
                 if (strcmp(token, "orn") == 0 || strcmp(token, "ornament") == 0) {

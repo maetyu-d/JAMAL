@@ -33,6 +33,7 @@ typedef struct {
     float pitch_env;
     float pitch_decay;
     float hp_state;
+    float supersaw_lp;
     float svf_lp;
     float svf_bp;
     float atk_inc;
@@ -58,6 +59,9 @@ typedef struct {
     int crush_count;
     float base_freq;
     float pan;
+    float detune_rate;
+    float detune_depth;
+    float drive;
     int mod_count;
     ModDef mods[32];
     float mod_phase[32];
@@ -74,7 +78,9 @@ typedef struct {
     int samples_per_step;
     int every;
     int rev;
+    int rev_transpose;
     int palindrome;
+    int offset_bars;
     int iter;
     int chunk;
     int stut;
@@ -98,6 +104,7 @@ typedef struct {
     int seq_cycle_active;
     float base_rate;
     int is_tempo_leader;
+    int delay_samples;
 } TrackRuntime;
 
 typedef struct {
@@ -124,6 +131,12 @@ typedef struct {
     bool running;
     unsigned long long pattern_epoch;
     int tempo_section;
+    int time_sig_seq_len;
+    int time_sig_seq_index;
+    int time_sig_seq_num;
+    int time_sig_seq_den;
+    double time_sig_bar_samples;
+    double time_sig_bar_progress;
 } EngineState;
 
 static EngineState g_engine;
@@ -139,6 +152,34 @@ static int is_pm_drum(SynthType t) {
             t == SYNTH_PM_CLAP || t == SYNTH_PM_TOM);
 }
 
+static int current_time_sig(const EngineState *engine, int *out_num, int *out_den) {
+    if (!engine || !out_num || !out_den) {
+        return 0;
+    }
+    if (engine->time_sig_seq_len > 0 && engine->time_sig_seq_num > 0 && engine->time_sig_seq_den > 0) {
+        *out_num = engine->time_sig_seq_num;
+        *out_den = engine->time_sig_seq_den;
+        return 1;
+    }
+    int section = engine->tempo_section;
+    if (section < 1 || section > 14) {
+        section = 1;
+    }
+    *out_num = engine->program.time_sig_num_map[section];
+    *out_den = engine->program.time_sig_den_map[section];
+    return 1;
+}
+
+static double bar_samples_for_sig(const EngineState *engine, int num, int den) {
+    if (!engine || num <= 0 || den <= 0 || engine->sample_rate <= 0.0 || engine->program.tempo <= 0.0f) {
+        return 0.0;
+    }
+    double sec_per_beat = 60.0 / (double)engine->program.tempo;
+    double whole_note = sec_per_beat * 4.0;
+    double bar_sec = whole_note * ((double)num / (double)den);
+    return bar_sec * engine->sample_rate;
+}
+
 static int effective_pattern_length(const EngineState *engine, const PatternDef *pattern) {
     if (!engine || !pattern) {
         return 0;
@@ -147,23 +188,27 @@ static int effective_pattern_length(const EngineState *engine, const PatternDef 
     if (len <= 0) {
         return 0;
     }
-    if (!engine->program.time_sig_enforce) {
+    if (!engine->program.time_sig_enforce && engine->time_sig_seq_len <= 0) {
         return len;
     }
-    int section = engine->tempo_section;
-    if (section < 1 || section > 14) {
-        section = 1;
+    int num = 0;
+    int den = 0;
+    if (engine->time_sig_seq_len > 0) {
+        num = engine->time_sig_seq_num;
+        den = engine->time_sig_seq_den;
+    } else {
+        int section = engine->tempo_section;
+        if (section < 1 || section > 14) {
+            section = 1;
+        }
+        num = engine->program.time_sig_num_map[section];
+        den = engine->program.time_sig_den_map[section];
     }
-    int num = engine->program.time_sig_num_map[section];
-    int den = engine->program.time_sig_den_map[section];
     if (num <= 0 || den <= 0) {
         return len;
     }
-    if (16 % den != 0) {
-        return len;
-    }
-    int steps_per_beat = 16 / den;
-    int bar_steps = num * steps_per_beat;
+    float steps_per_beat = 16.0f / (float)den;
+    int bar_steps = (int)lroundf((float)num * steps_per_beat);
     if (bar_steps <= 0) {
         return len;
     }
@@ -186,16 +231,20 @@ static float osc_sample(Voice *voice) {
             break;
         }
         case SYNTH_SUPERSAW: {
-            static const float detune_cents[7] = {-12.0f, -7.0f, -3.0f, 0.0f, 3.0f, 7.0f, 12.0f};
+            static const float detune_cents[10] = {-20.0f, -15.0f, -10.0f, -6.0f, -3.0f, 3.0f, 6.0f, 10.0f, 15.0f, 20.0f};
             float sum = 0.0f;
-            for (int i = 0; i < 7; i++) {
-                float ratio = powf(2.0f, detune_cents[i] / 1200.0f);
+            float t = (g_engine.sample_rate > 0.0) ? ((float)voice->age / (float)g_engine.sample_rate) : 0.0f;
+            for (int i = 0; i < 10; i++) {
+                float lfo_rate = voice->detune_rate * (0.7f + 0.06f * (float)i);
+                float lfo = sinf(2.0f * (float)M_PI * lfo_rate * t + (float)i * 1.3f);
+                float detune = detune_cents[i] + lfo * voice->detune_depth;
+                float ratio = powf(2.0f, detune / 1200.0f);
                 float ph = voice->phase * ratio + (float)i * 0.47f;
                 float x = ph / (2.0f * (float)M_PI);
                 float saw = 2.0f * (x - floorf(x + 0.5f));
                 sum += saw;
             }
-            sample = sum / 7.0f;
+            sample = sum / 10.0f;
             break;
         }
         case SYNTH_SQUARE:
@@ -450,6 +499,7 @@ static void voice_note_on(Voice *voice,
     voice->pitch_env = 1.0f;
     voice->pitch_decay = (float)(1.0 / (0.03 * sample_rate));
     voice->hp_state = 0.0f;
+    voice->supersaw_lp = 0.0f;
     voice->svf_lp = 0.0f;
     voice->svf_bp = 0.0f;
     if (glide_samples > 0) {
@@ -483,6 +533,9 @@ static void voice_note_on(Voice *voice,
     voice->accent = accent ? 1.0f : 0.0f;
     voice->svf_lp = 0.0f;
     voice->svf_bp = 0.0f;
+    voice->detune_rate = synth->detune_rate;
+    voice->detune_depth = synth->detune_depth;
+    voice->drive = synth->drive;
     voice->mod_count = synth->mod_count;
     for (int i = 0; i < voice->mod_count && i < 32; i++) {
         voice->mods[i] = synth->mods[i];
@@ -799,6 +852,16 @@ static float voice_render(Voice *voice, double sample_rate) {
         }
     }
 
+    if (voice->type == SYNTH_SUPERSAW) {
+        // Gentle softening of the top end without shrinking the body.
+        processed = one_pole_lp(processed, 7000.0f, sample_rate, &voice->supersaw_lp);
+    }
+
+    if (voice->drive > 0.0f) {
+        float drive = fminf(8.0f, fmaxf(0.0f, voice->drive));
+        processed = tanhf(processed * (1.0f + drive));
+    }
+
     voice->age++;
     float amp = voice->amp * mod_amp;
     if (amp < 0.0f) amp = 0.0f;
@@ -985,6 +1048,9 @@ static void schedule_track_step(EngineState *engine, TrackRuntime *track) {
         if (note >= 0) {
             float cents = pattern->cents[idx];
             float midi = (float)note + (cents / 100.0f);
+            if (track->rev && track->rev_transpose != 0) {
+                midi += (float)track->rev_transpose;
+            }
             float freq = 440.0f * powf(2.0f, (midi - 69.0f) / 12.0f);
             float slide_ms = track->slide_ms;
             if (pattern->slide_ms[idx] >= 0.0f) {
@@ -1098,8 +1164,28 @@ static OSStatus render_callback(void *in_ref_con,
     int clip = 0;
 
     for (UInt32 frame = 0; frame < in_number_frames; frame++) {
+        if (engine->time_sig_seq_len > 0 && engine->time_sig_bar_samples > 0.0) {
+            engine->time_sig_bar_progress += 1.0;
+            while (engine->time_sig_bar_progress >= engine->time_sig_bar_samples) {
+                engine->time_sig_bar_progress -= engine->time_sig_bar_samples;
+                if (engine->time_sig_seq_index + 1 < engine->time_sig_seq_len) {
+                    engine->time_sig_seq_index++;
+                    engine->time_sig_seq_num = engine->program.time_sig_seq_num[engine->time_sig_seq_index];
+                    engine->time_sig_seq_den = engine->program.time_sig_seq_den[engine->time_sig_seq_index];
+                    engine->time_sig_bar_samples = bar_samples_for_sig(engine, engine->time_sig_seq_num, engine->time_sig_seq_den);
+                } else {
+                    // Hold the last bar once the sequence ends.
+                    engine->time_sig_bar_samples = bar_samples_for_sig(engine, engine->time_sig_seq_num, engine->time_sig_seq_den);
+                    break;
+                }
+            }
+        }
         for (int t = 0; t < engine->track_count; t++) {
             TrackRuntime *track = &engine->tracks[t];
+            if (track->delay_samples > 0) {
+                track->delay_samples--;
+                continue;
+            }
             if (track->samples_until_step <= 0) {
                 schedule_track_step(engine, track);
                 track->samples_until_step = track->samples_per_step;
@@ -1212,7 +1298,9 @@ static int build_runtime(EngineState *engine) {
         runtime->step_index = 0;
         runtime->every = track->every;
         runtime->rev = track->rev;
+        runtime->rev_transpose = track->rev_transpose;
         runtime->palindrome = track->palindrome;
+        runtime->offset_bars = track->offset_bars;
         runtime->iter = track->iter;
         runtime->chunk = track->chunk;
         runtime->stut = track->stut;
@@ -1254,6 +1342,17 @@ static int build_runtime(EngineState *engine) {
             runtime->samples_per_step = 1;
         }
         runtime->samples_until_step = 0;
+        runtime->delay_samples = 0;
+
+        if (runtime->offset_bars > 0 && runtime->rev) {
+            int num = 0, den = 0;
+            if (current_time_sig(engine, &num, &den)) {
+                double bar_samples = bar_samples_for_sig(engine, num, den);
+                if (bar_samples > 0.0) {
+                    runtime->delay_samples = (int)(bar_samples * (double)runtime->offset_bars);
+                }
+            }
+        }
 
         if (!tempo_leader_set && runtime->sequence && runtime->sequence->count > 0) {
             runtime->is_tempo_leader = 1;
@@ -1417,6 +1516,17 @@ int audio_engine_play_script(const char *script, char *error, size_t error_len) 
     if (g_engine.base_samples_per_step < 1) {
         g_engine.base_samples_per_step = 1;
     }
+    g_engine.time_sig_seq_len = g_engine.program.time_sig_seq_len;
+    g_engine.time_sig_seq_index = 0;
+    g_engine.time_sig_seq_num = 0;
+    g_engine.time_sig_seq_den = 0;
+    g_engine.time_sig_bar_samples = 0.0;
+    g_engine.time_sig_bar_progress = 0.0;
+    if (g_engine.time_sig_seq_len > 0) {
+        g_engine.time_sig_seq_num = g_engine.program.time_sig_seq_num[0];
+        g_engine.time_sig_seq_den = g_engine.program.time_sig_seq_den[0];
+        g_engine.time_sig_bar_samples = bar_samples_for_sig(&g_engine, g_engine.time_sig_seq_num, g_engine.time_sig_seq_den);
+    }
     if (!build_runtime(&g_engine)) {
         snprintf(error, error_len, "Play command references missing synth or pattern");
         return 0;
@@ -1475,6 +1585,17 @@ int audio_engine_render_to_wav(const char *script, const char *path, double seco
     g_engine.base_samples_per_step = (int)(g_engine.sample_rate * 60.0 / g_engine.program.tempo / 4.0);
     if (g_engine.base_samples_per_step < 1) {
         g_engine.base_samples_per_step = 1;
+    }
+    g_engine.time_sig_seq_len = g_engine.program.time_sig_seq_len;
+    g_engine.time_sig_seq_index = 0;
+    g_engine.time_sig_seq_num = 0;
+    g_engine.time_sig_seq_den = 0;
+    g_engine.time_sig_bar_samples = 0.0;
+    g_engine.time_sig_bar_progress = 0.0;
+    if (g_engine.time_sig_seq_len > 0) {
+        g_engine.time_sig_seq_num = g_engine.program.time_sig_seq_num[0];
+        g_engine.time_sig_seq_den = g_engine.program.time_sig_seq_den[0];
+        g_engine.time_sig_bar_samples = bar_samples_for_sig(&g_engine, g_engine.time_sig_seq_num, g_engine.time_sig_seq_den);
     }
     if (!build_runtime(&g_engine)) {
         snprintf(error, error_len, "Render references missing synth or pattern");

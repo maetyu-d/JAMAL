@@ -1,0 +1,107 @@
+tempo_scale 0.2
+tempo 96
+maqam minor
+root A3
+master 0.9
+
+// Oval-style melodic micro-glitch / clicks-and-cuts
+synth k kick909
+set k amp 1.05
+set k dec 0.12
+set k rel 0.08
+set k drive 0.5
+
+synth k2 kick808
+set k2 amp 0.9
+set k2 dec 0.14
+set k2 rel 0.1
+set k2 drive 0.4
+
+synth s snare909
+set s amp 0.9
+set s dec 0.06
+set s rel 0.08
+set s drive 0.6
+
+synth s2 snare808
+set s2 amp 0.75
+set s2 dec 0.08
+set s2 rel 0.1
+set s2 drive 0.5
+
+synth ping metal
+set ping amp 0.25
+set ping atk 0.002
+set ping dec 0.06
+set ping rel 0.08
+set ping drive 0.7
+
+synth tone fm
+set tone amp 0.45
+set tone cutoff 1400
+set tone res 0.2
+set tone atk 0.01
+set tone dec 0.12
+set tone sus 0.4
+set tone rel 0.15
+set tone drive 0.6
+
+synth sub sine
+set sub amp 0.2
+set sub atk 0.01
+set sub dec 0.2
+set sub sus 0.7
+set sub rel 0.2
+
+// Micro-melodic cells
+pattern m1 (1 3 2 5 . 4 3 2 . 6 5 . 3 2 1 .)
+pattern m2 (1 . 2 4 3 . 5 4 . 6 5 3 . 2 1 .)
+pattern m3 (1 2 1 3 . 4 3 . 5 4 . 3 2 . 1 .)
+
+// Clicks and cuts (more militaristic grid)
+pattern c1 (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+pattern c2 (1 . . . 1 . . . 1 . . . 1 . . .)
+pattern c3 (1 . . 1 . . 1 . . 1 . . 1 . .)
+pattern c4 (. 1 . 1 . 1 . 1 . 1 . 1 . 1 . 1)
+
+// Continuously shifting breakbeat cores (kick/snare)
+pattern kb1 (1 . . 1 . . 1 . . 1 . . 1 . . .)
+pattern kb2 (1 . 1 . . 1 . . 1 . . 1 . . 1 .)
+pattern kb3 (1 . . . 1 . . 1 . . 1 . 1 . . .)
+pattern kb4 (1 . . 1 . 1 . . 1 . . 1 . . . 1)
+
+pattern sb1 (. . 1 . . . 1 . . 1 . . 1 . . .)
+pattern sb2 (. . 1 . . 1 . . . . 1 . . 1 . .)
+pattern sb3 (. . . 1 . . 1 . . 1 . . . 1 . .)
+pattern sb4 (. . 1 . . . . 1 . . 1 . . . 1 .)
+
+// Glitch accent swarms
+pattern g1 (1 . 1 . 1 . 1 . 1 . 1 . 1 . 1 .)
+pattern g2 (1 . . 1 . . 1 . 1 . . 1 . . 1 .)
+pattern g3 (1 1 . . 1 1 . . 1 1 . . 1 1 . .)
+pattern g4 (. 1 . . . 1 . . . 1 . . . 1 . .)
+
+// Low anchors
+pattern b1 (1, . . . 5,, . . . 1, . . . 4,, . . .)
+pattern b2 (1, . 5,, . 1, . 4,, . 5,, . 1, . 7,, . 1,)
+
+sequence seqM (m1, m2, m1, m3, m2, m1)
+sequence seqC (c1, c2, c3, c4, c2, c1)
+sequence seqK (kb1, kb2, kb3, kb2, kb4, kb3)
+sequence seqS (sb1, sb2, sb3, sb2, sb4, sb1)
+sequence seqG (g1, g2, g3, g2, g4, g1)
+sequence seqB (b1*2, b2*2, b1*2)
+
+// Play
+playseq seqM tone rev trans 3 fast 2 stut 3 density 0.95
+playseq seqC k rev trans 3 fast 2 density 0.8
+playseq seqC k2 rev trans 3 fast 2 density 0.75
+playseq seqG s rev trans 3 fast 2 density 0.75
+playseq seqG s2 rev trans 3 fast 2 density 0.7
+playseq seqK k rev trans 3 fast 2 stut 2 chunk 2 density 0.7
+playseq seqS s rev trans 3 fast 2 stut 2 chunk 2 density 0.7
+playseq seqK k2 rev trans 3 fast 2 density 0.5
+playseq seqS s2 rev trans 3 fast 2 density 0.5
+playseq seqC ping rev trans 3 slow 2 density 0.2
+playseq seqM ping rev trans 3 fast 3 density 0.3
+playseq seqB sub rev trans 3 slow 2

@@ -1,0 +1,97 @@
+tempo 60
+tempo_scale 1
+maqam hijaz
+root D2
+master 0.7
+
+// Soft, low supersaw drones with psychoacoustic drift
+synth dr1 supersaw
+set dr1 amp 0.28
+set dr1 cutoff 520
+set dr1 res 0.08
+set dr1 atk 2.8
+set dr1 dec 6.0
+set dr1 sus 0.82
+set dr1 rel 9.0
+set dr1 detune_rate 0.012
+set dr1 detune_depth 3.6
+
+synth dr2 supersaw
+set dr2 amp 0.22
+set dr2 cutoff 440
+set dr2 res 0.09
+set dr2 atk 3.2
+set dr2 dec 7.0
+set dr2 sus 0.8
+set dr2 rel 10.0
+set dr2 detune_rate 0.009
+set dr2 detune_depth 3.1
+
+synth dr3 supersaw
+set dr3 amp 0.18
+set dr3 cutoff 600
+set dr3 res 0.07
+set dr3 atk 3.6
+set dr3 dec 8.0
+set dr3 sus 0.78
+set dr3 rel 11.0
+set dr3 detune_rate 0.006
+set dr3 detune_depth 2.8
+
+// Psychoacoustic micro-drift and slow spectral breathing
+mod dr1 pitch lfo 0.0015 0.10 0
+mod dr1 cutoff lfo 0.01 140 0 900 0
+mod dr1 pan sample_hold 0.03 0.5 0 0 900
+
+mod dr2 pitch lfo 0.0012 0.08 0
+mod dr2 cutoff lfo 0.008 120 0 900 0
+mod dr2 res lfo 0.004 0.06 0
+mod dr2 pan sample_hold 0.025 0.6 0 0 1100
+
+mod dr3 pitch lfo 0.0010 0.07 0
+mod dr3 cutoff lfo 0.007 140 0 900 0
+
+// Sub layer for thick, swarming low end
+synth sub1 sine
+set sub1 amp 0.20
+set sub1 atk 4.0
+set sub1 dec 10.0
+set sub1 sus 0.9
+set sub1 rel 12.0
+
+synth sub2 sine
+set sub2 amp 0.18
+set sub2 atk 4.5
+set sub2 dec 11.0
+set sub2 sus 0.88
+set sub2 rel 13.0
+
+synth sub3 tri
+set sub3 amp 0.14
+set sub3 cutoff 900
+set sub3 res 0.05
+set sub3 atk 5.0
+set sub3 dec 12.0
+set sub3 sus 0.85
+set sub3 rel 14.0
+
+mod sub1 pitch lfo 0.002 0.18 0
+mod sub2 pitch lfo 0.0016 0.22 0
+mod sub3 pitch lfo 0.0012 0.26 0
+mod dr3 pan sample_hold 0.02 0.7 0 0 1300
+
+// Low, sparse degrees (each pattern = 16 steps = 4s; slow 2 => 8s)
+pattern d1 (1,, - - - - - - - - - - - - - - -)
+pattern d2 (5,, - - - - - - - - - - - - - - -)
+pattern d3 (6,, - - - - - - - - - - - - - - -)
+pattern d4 (7,, - - - - - - - - - - - - - - -)
+
+// Total repeats = 39 => 39 * 8s = 312s (5.2 min)
+sequence seqD (d1*12, d2*10, d3*9, d4*8)
+
+playseq seqD dr1 slow 2
+playseq seqD dr2 slow 2
+playseq seqD dr3 slow 2
+playseq seqD sub1 slow 2
+playseq seqD sub2 slow 2
+playseq seqD sub3 slow 2
